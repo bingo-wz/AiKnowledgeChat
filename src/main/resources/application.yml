@@ -52,13 +52,12 @@ sa-token:
   is-log: false
   is-read-header: true
 
-# 阿里云OSS配置
-aliyun:
-  oss:
-    endpoint: ${OSS_ENDPOINT:oss-cn-hangzhou.aliyuncs.com}
-    access-key-id: ${OSS_ACCESS_KEY_ID:xxx}
-    access-key-secret: ${OSS_ACCESS_KEY_SECRET:xxx}
-    bucket-name: ${OSS_BUCKET_NAME:classroom-files}
+# MinIO配置
+minio:
+  endpoint: http://localhost:9000
+  access-key: classroom
+  secret-key: classroom123
+  bucket-name: classroom-files
 
 # 日志配置
 logging:
