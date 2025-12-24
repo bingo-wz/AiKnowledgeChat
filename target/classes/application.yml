@@ -1,0 +1,67 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-knowledge-classroom
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:postgresql://localhost:5432/classroom
+    username: classroom
+    password: classroom123
+    driver-class-name: org.postgresql.Driver
+  
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+  # AI配置 (通义千问兼容OpenAI协议)
+  ai:
+    openai:
+      api-key: ${AI_API_KEY:sk-xxx}
+      base-url: ${AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      chat:
+        options:
+          model: ${AI_MODEL:qwen-turbo}
+
+# MyBatis-Plus配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# Sa-Token配置
+sa-token:
+  token-name: Authorization
+  timeout: 86400
+  active-timeout: 1800
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+  is-read-header: true
+
+# 阿里云OSS配置
+aliyun:
+  oss:
+    endpoint: ${OSS_ENDPOINT:oss-cn-hangzhou.aliyuncs.com}
+    access-key-id: ${OSS_ACCESS_KEY_ID:xxx}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:xxx}
+    bucket-name: ${OSS_BUCKET_NAME:classroom-files}
+
+# 日志配置
+logging:
+  level:
+    com.classroom: debug
+    org.springframework.ai: debug
