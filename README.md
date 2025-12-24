@@ -2,62 +2,70 @@
 
 在线课堂 + AI教研助手 + 知识库管理系统
 
+## 功能特性
+
+- 🎓 **在线课堂**: 实时聊天 + 成员管理
+- 📝 **协同文档**: Yjs实时多人编辑
+- 🤖 **AI助手**: 多模型RAG对话 (通义千问/智谱/DeepSeek)
+- 📚 **知识库**: 文档上传 + 向量检索
+
 ## 快速开始
 
-### 1. 启动基础设施
+### 开发环境
 
 ```bash
-chmod +x start-infra.sh
-./start-infra.sh
-```
+# 1. 启动基础设施
+chmod +x start-infra.sh && ./start-infra.sh
 
-### 2. 配置环境变量
+# 2. 配置AI模型 (选择一个)
+export QWEN_API_KEY=your-key
 
-创建 `.env` 文件或设置环境变量：
-
-```bash
-# AI配置（通义千问）
-export AI_API_KEY=your-api-key
-export AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-export AI_MODEL=qwen-turbo
-
-# OSS配置
-export OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
-export OSS_ACCESS_KEY_ID=your-access-key
-export OSS_ACCESS_KEY_SECRET=your-access-secret
-export OSS_BUCKET_NAME=classroom-files
-```
-
-### 3. 启动应用
-
-```bash
+# 3. 启动应用
 ./mvnw spring-boot:run
 ```
 
-访问: http://localhost:8080
+### 生产部署
 
-## 默认账号
+```bash
+# 配置API Key
+export QWEN_API_KEY=your-key
 
-- 管理员: admin / admin123
+# 一键部署
+chmod +x deploy.sh && ./deploy.sh
+```
+
+## 服务地址
+
+| 服务 | 地址 |
+|------|------|
+| 后端API | http://localhost:8080 |
+| MinIO控制台 | http://localhost:9001 |
+
+**默认账号**: admin / admin123
+
+## API文档
+
+| 模块 | 接口 |
+|------|------|
+| 认证 | `POST /auth/login` `POST /auth/register` |
+| 课堂 | `POST /classroom` `GET /classroom/my` |
+| 文档 | `POST /document` `WS /ws/doc/{id}` |
+| 知识库 | `POST /kb` `POST /kb/{id}/document` |
+| AI对话 | `POST /ai/chat/stream` `GET /ai/models` |
 
 ## 技术栈
 
-- **后端**: Spring Boot 3.3.6 + Spring AI + MyBatis-Plus + Sa-Token
-- **前端**: Vue 3 + TypeScript + Element Plus
-- **数据库**: PostgreSQL 16 + pgvector
-- **缓存**: Redis 7
-- **存储**: 阿里云OSS
+- Spring Boot 3.3.6 + Spring AI
+- PostgreSQL 16 + pgvector
+- Redis 7 + MinIO
+- Vue 3 + TypeScript (前端)
 
-## 项目结构
+## 资源占用
 
-```
-src/main/java/com/classroom/
-├── ClassroomApplication.java   # 主入口
-├── config/                     # 配置类
-├── common/                     # 公共模块
-├── auth/                       # 认证模块
-├── classroom/                  # 课堂模块
-├── document/                   # 文档模块
-├── ai/                         # AI对话模块
-└── knowledge/                  # 知识库模块
-```
+| 服务 | 内存 |
+|------|------|
+| PostgreSQL | 1G |
+| Redis | 256M |
+| MinIO | 256M |
+| 应用 | 1-1.5G |
+| **合计** | ~3G |

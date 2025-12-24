@@ -35,14 +35,11 @@ public class RagChatService {
     private final AiConversationMapper conversationMapper;
     private final AiMessageMapper messageMapper;
 
-    private static final int TOP_K = 5; // 检索top-k个相关片段
-    private static final String RAG_SYSTEM_PROMPT = """
-            你是AI智慧教研室的智能助手。请根据以下参考资料回答用户的问题。
-            如果参考资料中没有相关信息，请诚实告知用户你不确定，不要编造答案。
-
-            参考资料：
-            %s
-            """;
+    private static final int TOP_K = 5;
+    private static final String RAG_SYSTEM_PROMPT = "You are an AI teaching assistant. Please answer questions based on the following references.\n"
+            +
+            "If no relevant information is available, honestly tell the user.\n\n" +
+            "References:\n%s";
 
     /**
      * 创建对话

@@ -11,7 +11,6 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,21 +69,22 @@ public class EmbeddingService {
         return embeddingCache.computeIfAbsent(key, k -> {
             ModelConfig config = aiModelProperties.getModels().get(k);
             if (config == null) {
-                throw new IllegalArgumentException("未配置的模型: " + k);
+                throw new IllegalArgumentException("Model not configured: " + k);
             }
 
             OpenAiApi api = new OpenAiApi(config.getBaseUrl(), config.getApiKey());
 
-            String embeddingModel = config.getEmbeddingModel();
-            if (embeddingModel == null) {
-                embeddingModel = "text-embedding-v3"; // 通义千问默认embedding模型
+            String embeddingModelName = config.getEmbeddingModel();
+            if (embeddingModelName == null) {
+                embeddingModelName = "text-embedding-v3";
             }
 
             OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
-                    .withModel(embeddingModel)
+                    .withModel(embeddingModelName)
                     .build();
 
-            return new OpenAiEmbeddingModel(api, options);
+            // Spring AI 1.0.0-M4 构造函数
+            return new OpenAiEmbeddingModel(api, org.springframework.ai.document.MetadataMode.EMBED, options);
         });
     }
 }
