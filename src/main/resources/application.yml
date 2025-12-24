@@ -19,14 +19,12 @@ spring:
       port: 6379
       database: 0
 
-  # AI配置 (通义千问兼容OpenAI协议)
-  ai:
-    openai:
-      api-key: ${AI_API_KEY:sk-xxx}
-      base-url: ${AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-      chat:
-        options:
-          model: ${AI_MODEL:qwen-turbo}
+  # 异步任务
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
 
 # MyBatis-Plus配置
 mybatis-plus:
@@ -59,8 +57,31 @@ minio:
   secret-key: classroom123
   bucket-name: classroom-files
 
+# AI多模型配置
+ai:
+  default-model: qwen
+  models:
+    # 通义千问
+    qwen:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${QWEN_API_KEY:sk-xxx}
+      model: qwen-turbo
+      embedding-model: text-embedding-v3
+    # 智谱AI
+    zhipu:
+      base-url: https://open.bigmodel.cn/api/paas/v4
+      api-key: ${ZHIPU_API_KEY:xxx}
+      model: glm-4-flash
+      embedding-model: embedding-3
+    # DeepSeek
+    deepseek:
+      base-url: https://api.deepseek.com/v1
+      api-key: ${DEEPSEEK_API_KEY:xxx}
+      model: deepseek-chat
+      embedding-model: null
+
 # 日志配置
 logging:
   level:
     com.classroom: debug
-    org.springframework.ai: debug
+    org.springframework.ai: info
