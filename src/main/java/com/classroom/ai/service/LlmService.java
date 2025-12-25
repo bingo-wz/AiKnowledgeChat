@@ -2,18 +2,14 @@ package com.classroom.ai.service;
 
 import com.classroom.ai.config.AiModelProperties;
 import com.classroom.ai.config.AiModelProperties.ModelConfig;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
@@ -22,7 +18,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 多模型LLM服务
+ * 多模型LLM服务 - 直接HTTP调用实现
  */
 @Slf4j
 @Service
@@ -30,9 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LlmService {
 
     private final AiModelProperties aiModelProperties;
-
-    // 模型实例缓存
-    private final Map<String, OpenAiChatModel> modelCache = new ConcurrentHashMap<>();
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final Map<String, WebClient> webClientCache = new ConcurrentHashMap<>();
 
     /**
      * 获取可用模型列表
@@ -43,102 +38,118 @@ public class LlmService {
     }
 
     /**
-     * 对话（流式）
+     * 对话（流式）- 暂时使用非流式实现
      */
     public Flux<String> chatStream(String modelKey, String systemPrompt, List<ChatMessage> history, String userInput) {
-        OpenAiChatModel chatModel = getChatModel(modelKey);
-
-        List<Message> messages = new ArrayList<>();
-
-        // 系统提示
-        if (systemPrompt != null && !systemPrompt.isEmpty()) {
-            messages.add(new SystemMessage(systemPrompt));
-        }
-
-        // 历史消息
-        if (history != null) {
-            for (ChatMessage msg : history) {
-                if ("user".equals(msg.getRole())) {
-                    messages.add(new UserMessage(msg.getContent()));
-                } else if ("assistant".equals(msg.getRole())) {
-                    messages.add(new AssistantMessage(msg.getContent()));
-                }
-            }
-        }
-
-        // 当前用户输入
-        messages.add(new UserMessage(userInput));
-
-        Prompt prompt = new Prompt(messages);
-
-        return chatModel.stream(prompt)
-                .map(response -> {
-                    if (response.getResult() != null &&
-                            response.getResult().getOutput() != null &&
-                            response.getResult().getOutput().getContent() != null) {
-                        return response.getResult().getOutput().getContent();
-                    }
-                    return "";
-                })
-                .filter(content -> !content.isEmpty());
+        String response = chat(modelKey, systemPrompt, history, userInput);
+        return Flux.just(response);
     }
 
     /**
      * 对话（非流式）
      */
     public String chat(String modelKey, String systemPrompt, List<ChatMessage> history, String userInput) {
-        OpenAiChatModel chatModel = getChatModel(modelKey);
+        String key = modelKey != null ? modelKey : aiModelProperties.getDefaultModel();
+        ModelConfig config = aiModelProperties.getModels().get(key);
 
-        List<Message> messages = new ArrayList<>();
+        if (config == null) {
+            throw new IllegalArgumentException("Model not configured: " + key);
+        }
+
+        log.info("Calling model: {} at {}", key, config.getBaseUrl());
+
+        // 构建消息列表
+        List<Map<String, String>> messages = new ArrayList<>();
 
         if (systemPrompt != null && !systemPrompt.isEmpty()) {
-            messages.add(new SystemMessage(systemPrompt));
+            messages.add(Map.of("role", "system", "content", systemPrompt));
         }
 
         if (history != null) {
             for (ChatMessage msg : history) {
-                if ("user".equals(msg.getRole())) {
-                    messages.add(new UserMessage(msg.getContent()));
-                } else if ("assistant".equals(msg.getRole())) {
-                    messages.add(new AssistantMessage(msg.getContent()));
-                }
+                messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
             }
         }
 
-        messages.add(new UserMessage(userInput));
+        messages.add(Map.of("role", "user", "content", userInput));
 
-        Prompt prompt = new Prompt(messages);
-        ChatResponse response = chatModel.call(prompt);
+        // 构建请求体
+        Map<String, Object> requestBody = Map.of(
+                "model", config.getModel(),
+                "messages", messages,
+                "temperature", 0.7);
 
-        return response.getResult().getOutput().getContent();
-    }
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + config.getApiKey());
 
-    private OpenAiChatModel getChatModel(String modelKey) {
-        String key = modelKey != null ? modelKey : aiModelProperties.getDefaultModel();
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-        return modelCache.computeIfAbsent(key, k -> {
-            ModelConfig config = aiModelProperties.getModels().get(k);
-            if (config == null) {
-                throw new IllegalArgumentException("未配置的模型: " + k);
+        try {
+            String url = config.getBaseUrl() + "/chat/completions";
+            ResponseEntity<ChatCompletionResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    ChatCompletionResponse.class);
+
+            if (response.getBody() != null &&
+                    response.getBody().getChoices() != null &&
+                    !response.getBody().getChoices().isEmpty()) {
+                return response.getBody().getChoices().get(0).getMessage().getContent();
             }
 
-            OpenAiApi api = new OpenAiApi(config.getBaseUrl(), config.getApiKey());
-            OpenAiChatOptions options = OpenAiChatOptions.builder()
-                    .withModel(config.getModel())
-                    .build();
-
-            return new OpenAiChatModel(api, options);
-        });
+            return "No response from AI";
+        } catch (Exception e) {
+            log.error("Error calling AI API: {}", e.getMessage(), e);
+            throw new RuntimeException("AI call failed: " + e.getMessage());
+        }
     }
 
     /**
      * 聊天消息
      */
-    @lombok.Data
+    @Data
     @lombok.AllArgsConstructor
     @lombok.NoArgsConstructor
     public static class ChatMessage {
         private String role;
         private String content;
+    }
+
+    /**
+     * API响应结构
+     */
+    @Data
+    public static class ChatCompletionResponse {
+        private String id;
+        private String model;
+        private List<Choice> choices;
+        private Usage usage;
+
+        @Data
+        public static class Choice {
+            private int index;
+            private Message message;
+            @JsonProperty("finish_reason")
+            private String finishReason;
+        }
+
+        @Data
+        public static class Message {
+            private String role;
+            private String content;
+        }
+
+        @Data
+        public static class Usage {
+            @JsonProperty("prompt_tokens")
+            private int promptTokens;
+            @JsonProperty("completion_tokens")
+            private int completionTokens;
+            @JsonProperty("total_tokens")
+            private int totalTokens;
+        }
     }
 }

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
+import { createConversation, sendChatMessage } from '../../api/ai'
+import { ElMessage } from 'element-plus'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -9,13 +11,24 @@ interface Message {
 const messages = ref<Message[]>([])
 const inputText = ref('')
 const loading = ref(false)
-const selectedModel = ref('qwen')
+const selectedModel = ref('zhipu')
+const conversationId = ref<number | null>(null)
 
 const models = [
-  { value: 'qwen', label: '通义千问' },
   { value: 'zhipu', label: '智谱AI' },
+  { value: 'qwen', label: '通义千问' },
   { value: 'deepseek', label: 'DeepSeek' }
 ]
+
+async function initConversation() {
+  if (conversationId.value) return
+  try {
+    const id = await createConversation('New Chat')
+    conversationId.value = id
+  } catch (e) {
+    console.error('Failed to create conversation', e)
+  }
+}
 
 async function sendMessage() {
   if (!inputText.value.trim() || loading.value) return
@@ -27,15 +40,33 @@ async function sendMessage() {
   
   scrollToBottom()
   
-  // Simulate AI response (will be replaced with actual API call)
-  setTimeout(() => {
+  try {
+    // 如果没有对话ID，先创建
+    if (!conversationId.value) {
+      conversationId.value = await createConversation('New Chat')
+    }
+    
+    // 调用真实API
+    const response = await sendChatMessage(
+      conversationId.value,
+      userMsg,
+      selectedModel.value
+    )
+    
     messages.value.push({
       role: 'assistant',
-      content: `这是来自 ${selectedModel.value} 的回复示例。实际使用时将调用后端 RAG API 进行知识检索和生成回答。\n\n您的问题是: "${userMsg}"`
+      content: response
     })
+  } catch (e: any) {
+    ElMessage.error(e.message || 'AI回复失败')
+    messages.value.push({
+      role: 'assistant',
+      content: '抱歉，AI回复失败，请稍后重试。'
+    })
+  } finally {
     loading.value = false
     scrollToBottom()
-  }, 1000)
+  }
 }
 
 function scrollToBottom() {
@@ -49,7 +80,12 @@ function scrollToBottom() {
 
 function clearChat() {
   messages.value = []
+  conversationId.value = null
 }
+
+onMounted(() => {
+  initConversation()
+})
 </script>
 
 <template>
