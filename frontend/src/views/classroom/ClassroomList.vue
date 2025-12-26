@@ -23,7 +23,12 @@ const formData = ref({ name: '', description: '' })
 async function loadClassrooms() {
   loading.value = true
   try {
-    classrooms.value = await getClassrooms()
+    const result = await getClassrooms()
+    // API返回分页格式，需要从records中提取
+    classrooms.value = result?.records || result || []
+  } catch (e) {
+    console.error('Failed to load classrooms', e)
+    classrooms.value = []
   } finally {
     loading.value = false
   }

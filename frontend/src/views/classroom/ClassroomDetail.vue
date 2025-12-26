@@ -23,7 +23,7 @@ interface Member {
 
 const route = useRoute()
 const userStore = useUserStore()
-const classroomId = Number(route.params.id)
+const classroomId = ref<number>(0)
 
 const classroom = ref<any>(null)
 const messages = ref<Message[]>([])
@@ -33,24 +33,31 @@ const loading = ref(false)
 let ws: WebSocket | null = null
 
 async function loadData() {
+  if (!classroomId.value || classroomId.value <= 0) {
+    console.error('Invalid classroom ID')
+    return
+  }
   loading.value = true
   try {
     const [detail, memberList, msgPage] = await Promise.all([
-      getClassroomDetail(classroomId),
-      getClassroomMembers(classroomId),
-      getChatMessages(classroomId)
+      getClassroomDetail(classroomId.value),
+      getClassroomMembers(classroomId.value),
+      getChatMessages(classroomId.value)
     ])
     classroom.value = detail
-    members.value = memberList
-    messages.value = (msgPage.records || []).reverse()
+    members.value = memberList || []
+    messages.value = (msgPage?.records || []).reverse()
+  } catch (e) {
+    console.error('Failed to load data', e)
   } finally {
     loading.value = false
   }
 }
 
 function connectWebSocket() {
-  const token = userStore.token
-  ws = new WebSocket(`ws://localhost:8080/ws/chat/${classroomId}`)
+  if (!classroomId.value || classroomId.value <= 0) return
+  
+  ws = new WebSocket(`ws://localhost:8080/ws/chat/${classroomId.value}`)
   
   ws.onopen = () => {
     console.log('WebSocket connected')
@@ -95,8 +102,14 @@ function scrollToBottom() {
 }
 
 onMounted(() => {
-  loadData()
-  connectWebSocket()
+  const id = Number(route.params.id)
+  if (id && !isNaN(id) && id > 0) {
+    classroomId.value = id
+    loadData()
+    connectWebSocket()
+  } else {
+    console.error('Invalid classroom ID from route:', route.params.id)
+  }
 })
 
 onUnmounted(() => {

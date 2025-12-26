@@ -76,7 +76,7 @@ ai:
     # DeepSeek
     deepseek:
       base-url: https://api.deepseek.com/v1
-      api-key: ${DEEPSEEK_API_KEY:xxx}
+      api-key: sk-227d8e98822044389986be9ec9bbaaea
       model: deepseek-chat
       embedding-model: null
 
